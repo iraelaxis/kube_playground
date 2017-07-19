@@ -144,8 +144,7 @@ $ minikube addons open heapster
 Opening kubernetes service kube-system/monitoring-grafana in default browser...
 ```
 
-[[images/grafana.png]]
-
+![grafana](images/grafana.png)
 
 ## 5. Generate some load and watch the application autoscale
 
