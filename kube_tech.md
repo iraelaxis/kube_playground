@@ -51,6 +51,11 @@ The first thing we’ll do is define our endpoint by creating a ConfigMap that s
 
 <https://kubernetes.io/docs/tutorials/configuration/configure-redis-using-configmap/>
 
+
+Scalable Redis
+
+<https://github.com/kubernetes/examples/blob/master/staging/storage/redis/README.md>
+
 ---
 
 The Kubernetes scheduler runs as a process alongside the other master components such as the API server. Its interface to the API server is to watch for Pods with an empty PodSpec.NodeName, and for each Pod, it posts a binding indicating where the Pod should be scheduled.
@@ -60,4 +65,15 @@ The Kubernetes scheduler runs as a process alongside the other master components
 <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/>
 
 <https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/>
+
+
+---
+
+### Stateful examples
+
+<https://github.com/saturnism/akka-kubernetes-example>
+
+<https://www.stratoscale.com/blog/kubernetes/kubernetes-how-to-share-disk-storage-between-containers-in-a-pod/>
+
+<https://kubernetes.io/docs/concepts/storage/persistent-volumes/>
 
