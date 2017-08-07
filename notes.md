@@ -57,84 +57,6 @@ fleet uses systemd to start processes on machines. The processes require a defin
 Kubernetes is the container cluster manager from Google that offers a unique workflow for managing containers across multiple machines. Kubernetes introduces the concept of a pod, which represents a group of containers that should be deployed as a single logical service. The pod concept tends to fit well with the popular pattern of running a single service per container. Kubernetes makes it easy to run multiple pods on a single machine or across an entire cluster for better resource utilization and high availability. Kubernetes also actively monitors the health of pods to ensure they are always running within the cluster.
 
 
-
-Deploy a fully-functional Kubernetes cluster using AWS CloudFormation. Your cluster will be configured to use AWS features to enhance Kubernetes. For example, Kubernetes may automatically provision an Elastic Load Balancer for each Kubernetes Service. At CoreOS, we use the kube-aws CLI tool to automate cluster deployment to AWS.
-
-
-
-<https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws.html>
-
-1. Download Kube-aws
-
-<https://github.com/kubernetes-incubator/kube-aws/releases/tag/v0.9.7>
-
-
-Create
-The keypair that will authenticate SSH access to your EC2 instances. The public half of this key pair will be configured on each CoreOS node.
-
-```
-aws kms --region=eu-west-1 create-key --description="kube-aws assets"
-```
-
-2. External DNS name
-
-Select a DNS hostname where the cluster API will be accessible. Typically this hostname is available over the internet ("external"), so end users can connect from different networks. This hostname will be used to provision the TLS certificate for the API server, which encrypts traffic between your users and the API. Optionally, you can provide the certificates yourself, which is recommended for production clusters.
-
-
-
-
-3. Create S3 bucket
-
-```
-aws s3api --region=<your-region> create-bucket --bucket <your-bucket-name>
-
-aws s3api create-bucket --bucket my-bucket-kube --region eu-west-1 --create-bucket-configuration LocationConstraint=eu-west-1
-{
-    "Location": "http://my-bucket-kube.s3.amazonaws.com/"
-}
-```
-
-
-```
-kube-aws init \
---cluster-name=my-cluster-name \
---external-dns-name=my-cluster-endpoint \
---region=eu-west-1 \
---availability-zone=eu-west-1 \
---key-name=key-pair-name \
---kms-key-arn="arn:aws:kms:eu-west-1:......"
-```
-
-
-
-4. Generate certificates
-
-
-In the simplest case, you can have kube-aws generate both your TLS identities and certificate authority for you.
-
-```
-$ kube-aws render credentials --generate-ca
-```
-
-This is not recommended for production, but is fine for development or testing purposes.
-
-It is recommended that you supply your own immediate certificate signing authority and let kube-aws take care of generating the cluster TLS credentials.
-
-```
-$ kube-aws render credentials --ca-cert-path=/path/to/ca-cert.pem --ca-key-path=/path/to/ca-key.pem
-```
-
-
-
-5.
-Create the instances defined in the CloudFormation template
-Now for the exciting part, creating your cluster:
-
-```
-kube-aws up --s3-uri s3://my-bucket-kube/test_prefix
-```
-
-
 # JUJU
 
 **Model, configure and manage services with Juju and deploy to all major public and private clouds with only a few commands.**
@@ -236,6 +158,10 @@ swapaccount=1
 
 Удалить всё - `minikube delete`
 
+
+Показать всё - `kubectl get all --all-namespaces`
+
+
 Запуск dashboard - `minikube dashboard`
 
 Запускается на виртульном ip (```minikube ip```), gui на 30000 порту  
@@ -322,6 +248,10 @@ Hello Kubernetes!
 ```
 
 
+Internal load balancer on AWS
+<https://kubernetes.io/docs/concepts/services-networking/service/#type-loadbalancer>
+
+
 
 ### Autoscale
 
@@ -349,3 +279,94 @@ Heapster <https://github.com/kubernetes/heapster>
 InfluxDB\Grafana <https://portal.influxdata.com/downloads>
 
 Kubedash <https://github.com/kubernetes/dashboard>
+
+
+
+### Structure
+
+Each Pod gets it’s own virtual IP address, but these IP addresses aren’t useful to the outside world.
+
+*ReplicationControllers* in particular create and destroy Pods dynamically (e.g. when scaling up or down or when doing rolling updates). While each Pod gets its own IP address, even those IP addresses cannot be relied upon to be stable over time. This leads to a problem: if some set of Pods (let’s call them backends) provides functionality to other Pods (let’s call them frontends) inside the Kubernetes cluster, how do those frontends find out and keep track of which backends are in that set?
+
+
+A Kubernetes Service is an abstraction which defines a logical set of Pods and a policy by which to access them - sometimes called a micro-service. The set of Pods targeted by a Service is (usually) determined by a *Label Selector*
+
+
+Ingress controllers are applications that watch Ingresses in the cluster and configure a balancer to apply those rules. You can configure any of the third party balancers like HAProxy, NGINX, Vulcand or Traefik to create your version of the Ingress controller.  Ingress controller should track the changes in ingress resources, services and pods and accordingly update configuration of the balancer.
+
+
+### Load-balance layers
+
+*Service* can be used to load-balance traffic to *pods* al layer 4.
+
+*Ingress* are used to load-balance traffic between *pods* at layer 7.
+
+
+
+ClusterIP: Exposes the service on a cluster-internal IP. Choosing this value makes the service only reachable from within the cluster. This is the default ServiceType
+
+NodePort: Exposes the service on each Node’s IP at a static port (the NodePort). A ClusterIP service, to which the NodePort service will route, is automatically created. You’ll be able to contact the NodePort service, from outside the cluster, by requesting <NodeIP>:<NodePort>.
+
+LoadBalancer: Exposes the service externally using a cloud provider’s load balancer. NodePort and ClusterIP services, to which the external load balancer will route, are automatically created.
+
+
+
+>You'll need to specify the namespace also, since its not in the default namespace.
+
+```
+$ kubectl get all --all-namespaces
+NAMESPACE     NAME                                      READY     STATUS    RESTARTS   AGE
+default       po/app-rhqnt                              1/1       Running   3          22h
+default       po/kapacitor-q1f4l                        1/1       Running   3          23h
+kube-system   po/default-http-backend-mfjf3             1/1       Running   3          23h
+kube-system   po/kube-addon-manager-minikube            1/1       Running   4          23h
+kube-system   po/kube-dns-1301475494-ph68j              3/3       Running   9          23h
+kube-system   po/kubernetes-dashboard-7svwr             1/1       Running   4          23h
+kube-system   po/monitoring-influxdb-grafana-v4-6j8q3   2/2       Running   2          5m
+kube-system   po/nginx-ingress-controller-rnng1         1/1       Running   4          23h
+
+NAMESPACE     NAME                                DESIRED   CURRENT   READY     AGE
+kube-system   rc/default-http-backend             1         1         1         23h
+kube-system   rc/kubernetes-dashboard             1         1         1         23h
+kube-system   rc/monitoring-influxdb-grafana-v4   1         1         1         5m
+kube-system   rc/nginx-ingress-controller         1         1         1         23h
+
+NAMESPACE     NAME                       CLUSTER-IP   EXTERNAL-IP   PORT(S)             AGE
+default       svc/app                    10.0.0.205   <nodes>       8000:31878/TCP      23h
+default       svc/kapacitor              10.0.0.232   <nodes>       9092:30713/TCP      23h
+default       svc/kubernetes             10.0.0.1     <none>        443/TCP             23h
+kube-system   svc/default-http-backend   10.0.0.137   <nodes>       80:30001/TCP        23h
+kube-system   svc/heapster               10.0.0.9     <none>        80/TCP              5m
+kube-system   svc/kube-dns               10.0.0.10    <none>        53/UDP,53/TCP       23h
+kube-system   svc/kubernetes-dashboard   10.0.0.178   <nodes>       80:30000/TCP        23h
+kube-system   svc/monitoring-grafana     10.0.0.168   <none>        80/TCP              6m
+kube-system   svc/monitoring-influxdb    10.0.0.144   <none>        8083/TCP,8086/TCP   5m
+
+NAMESPACE     NAME              DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+kube-system   deploy/kube-dns   1         1         1            1           23h
+
+NAMESPACE     NAME                     DESIRED   CURRENT   READY     AGE
+default       rs/app                   1         1         1         23h
+default       rs/kapacitor             1         1         1         23h
+kube-system   rs/kube-dns-1301475494   1         1         1         23h
+```
+
+---
+
+<https://kubernetes.io/docs/concepts/configuration/secret/>
+
+Objects of type *secret* are intended to hold sensitive information, such as passwords, OAuth tokens, and ssh keys. Putting this information in a secret is safer and more flexible than putting it verbatim in a pod definition or in a docker image. 
+
+
+
+---
+
+Update docker image
+
+<https://kubernetes.io/docs/tutorials/stateless-application/hello-minikube/>
+
+---
+
+Load-balancer
+
+<https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/>
