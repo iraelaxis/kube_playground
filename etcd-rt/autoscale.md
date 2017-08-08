@@ -34,3 +34,22 @@ $ etcdctl get /services/php-apache
 $ etcdctl get /services/php-apache
 172.17.0.6
 ```
+
+
+---
+
+Access to API with proxy
+
+```
+$ kubectl proxy
+Starting to serve on 127.0.0.1:8001
+```
+
+
+```
+$ curl http://127.0.0.1:8001/api/v1/namespaces/default/pods?labelSelector=run=php-apache | jq -r .items[].status.podIP
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  4439    0  4439    0     0  1703k      0 --:--:-- --:--:-- --:--:-- 2167k
+172.17.0.5
+```
