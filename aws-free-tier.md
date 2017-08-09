@@ -18,7 +18,7 @@ Default output format [None]: ENTER
 Create S3 bucket
 
 ```
-aws s3api create-bucket --bucket kube-state-store-abcdef --region us-west-1
+aws s3api create-bucket --bucket kube-state-store-abcdef
 ```
 
 Enable bucket versioning
@@ -36,7 +36,7 @@ Create cluster
 
 ```
 kops create cluster --name=kubernetes-cluster.k8s.local \
-  --state=s3://kube-state-store-abcdef --zones=us-west-1 \
+  --state=s3://kube-state-store-abcdef --zones=eu-west-1a \
   --node-count=2 --node-size=t2.micro --master-size=t2.micro
 ```
 
